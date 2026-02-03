@@ -5,10 +5,17 @@ import discord
 import feedparser
 from discord.ext import commands
 from datetime import timedelta
+import aiohttp
+from datetime import timedelta
+
+TARGET_CHANNEL_ID = 123456789012345678  # replace with your channel ID
+GEMINI_API_KEY = "YOUR_API_KEY_HERE"   # replace with your key
 # ====== ENV CONFIG ======
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 ROLE_ID = 1465252354600337459  # role to ping
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
 
 YOUTUBE_CHANNEL_ID = "UCKXtEuNAVfhSID-5yNFSp7Q"
 INSTAGRAM_RSS = "https://rsshub.app/instagram/user/vibe.music_39"
@@ -20,8 +27,19 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.presences = True
+# ====== GEN Z REPLY ======
+def genz_reply(text: str) -> str:
+    # shorten long replies
+    if len(text) > 180:
+        text = text[:170] + "…"
 
+    slang = ["fr", "no cap", "deadass", "lowkey", "highkey", "💀", "bro", "vibe", "slaps", "sus", "bet"]
 
+    # add a random slang word at the end
+    import random
+    text += " " + random.choice(slang)
+
+    return text
 # ====== DURATION PARSER ======
 def parse_duration(duration_str: str) -> int | None:
     """
@@ -173,6 +191,49 @@ async def unmute(ctx: commands.Context, member: discord.Member):
     except Exception as e:
         await ctx.send(f"Failed to unmute: {e}")
 
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
 
+    if message.channel.id != TARGET_CHANNEL_ID:
+        return
+
+    prompt = message.content
+
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY
+    }
+
+    payload = {
+        "contents": [
+            {
+                "parts": [{"text": f"Reply shortly, Gen Z slang, simple: {prompt}"}]
+            }
+        ]
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+            headers=headers,
+            json=payload
+        ) as response:
+
+            if response.status != 200:
+                await message.channel.send("yo chill, the AI is tweaking rn 😵‍💫")
+                return
+
+            data = await response.json()
+
+            try:
+                reply = data["candidates"][0]["content"]["parts"][0]["text"]
+                reply = genz_reply(reply)
+                await message.channel.send(reply)
+            except Exception:
+                await message.channel.send("idk what that was bro 💀 try again")
+
+    await bot.process_commands(message)
 # ====== RUN ======
 bot.run(TOKEN)
