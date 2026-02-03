@@ -30,5 +30,40 @@ async def check_youtube():
             await channel.send(f"<@&1465252354600337459> New YouTube video just dropped! 📹\n{latest.link}")
         await asyncio.sleep(300)
 
+async def check_instagram():
+    await client.wait_until_ready()
+    channel = client.get_channel(CHANNEL_ID)
+    last_post = None
+
+    while not client.is_closed():
+        feed = feedparser.parse("https://rsshub.app/instagram/user/vibe.music_39")
+        latest = feed.entries[0]
+
+        if latest.id != last_post:
+            last_post = latest.id
+            await channel.send(
+                f"<@&1465252354600337459> New Instagram post! 📸\n{latest.link}"
+            )
+
+        await asyncio.sleep(300) 
+
+async def check_tiktok():
+    await client.wait_until_ready()
+    channel = client.get_channel(CHANNEL_ID)
+    last_tt_post = None
+
+    while not client.is_closed():
+        feed = feedparser.parse("https://rsshub.app/tiktok/user/@vibe.music_39")
+        latest = feed.entries[0]
+
+        if latest.id != last_tt_post:
+            last_tt_post = latest.id
+            await channel.send(
+                f"<@&1465252354600337459> New TikTok just dropped! 🎵\n{latest.link}"
+            )
+
+        await asyncio.sleep(300)
 client.loop.create_task(check_youtube())
+client.loop.create_task(check_instagram())
+client.loop.create_task(check_tiktok())
 client.run(TOKEN)
