@@ -52,7 +52,7 @@ def parse_duration(duration_str: str) -> int | None:
 # ====== BOT CLASS ======
 class MyBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix="v!", intents=intents)
+        super().__init__(command_prefix="saexy", intents=intents)
         self.last_youtube_id = None
         self.last_instagram_id = None
         self.last_tiktok_id = None
