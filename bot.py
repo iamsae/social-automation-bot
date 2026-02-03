@@ -4,7 +4,7 @@ import asyncio
 import discord
 import feedparser
 from discord.ext import commands
-
+from datetime import timedelta
 # ====== ENV CONFIG ======
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
@@ -157,7 +157,7 @@ async def mute(ctx: commands.Context, member: discord.Member, duration: str | No
         return
 
     try:
-        until = discord.utils.utcnow() + discord.timedelta(minutes=minutes)
+        until = discord.utils.utcnow() + timedelta(minutes=minutes)
         await member.timeout(until)
         await ctx.send(f"{member.mention} has been muted for **{duration_label}**. 🤐")
     except Exception as e:
