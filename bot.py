@@ -19,7 +19,7 @@ intents.message_content = True
 # ====== BOT CLASS ======
 class MyBot(commands.Bot):
     def __init__(self):
-        super().__init__(command_prefix="!", intents=intents)
+        super().__init__(command_prefix="sae", intents=intents)
         self.last_youtube_id = None
         self.last_instagram_id = None
         self.last_tiktok_id = None
