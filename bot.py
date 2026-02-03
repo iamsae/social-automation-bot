@@ -1,203 +1,96 @@
 import os
-import re
 import asyncio
 import discord
 import feedparser
-import aiohttp
-import random
 from discord.ext import commands
-from datetime import timedelta
+from discord import app_commands
+from xai import Client
 
 # ====== ENV CONFIG ======
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 ROLE_ID = int(os.getenv("ROLE_ID"))
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
+GROK_API_KEY = os.getenv("GROK_API_KEY")
 
-YOUTUBE_CHANNEL_ID = "UCKXtEuNAVfhSID-5yNFSp7Q"
-INSTAGRAM_RSS = "https://rsshub.app/instagram/user/vibe.music_39"
-TIKTOK_RSS = "https://rsshub.app/tiktok/user/@vibe.music_39"
+grok = Client(api_key=GROK_API_KEY)
 
-MAX_TIMEOUT_MINUTES = 28 * 24 * 60  # 28 days
+# ====== VIBE LORE & PERSONALITY MAP ======
+# This defines the "brain" for each mode
+VIBE_BASE_LORE = (
+    "You are the Vibe Digital Agent, part of an ecosystem of stylized car visuals, "
+    "neon aesthetics, and underground music. You know about NORTH26 remixes and DX thumbnails."
+)
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-intents.presences = True
+PERSONALITIES = {
+    "vibe": f"{VIBE_BASE_LORE} Tone: Default, chill, neon-coded, rhythmic.",
+    "goblin": f"{VIBE_BASE_LORE} Tone: Unhinged Gen Z energy, max brainrot, chaotic, funny.",
+    "angel": f"{VIBE_BASE_LORE} Tone: Soft, uplifting, aesthetic, pure positive vibes.",
+    "savage": f"{VIBE_BASE_LORE} Tone: Savage, roast-heavy, high-key judgmental about mid music.",
+    "suit": f"{VIBE_BASE_LORE} Tone: Clean, corporate, professional, overly polite."
+}
 
-# ====== GEN Z REPLY ======
-def genz_reply(text: str) -> str:
-    if len(text) > 180:
-        text = text[:170] + "…"
-    slang = ["fr", "no cap", "deadass", "lowkey", "highkey", "💀", "bro", "vibe", "slaps", "sus", "bet"]
-    text += " " + random.choice(slang)
-    return text
-
-# ====== DURATION PARSER ======
-def parse_duration(duration_str: str) -> int | None:
-    pattern = r"(\d+)([dhms])"
-    matches = re.findall(pattern, duration_str.lower())
-    if not matches:
-        return None
-    total_seconds = 0
-    for value, unit in matches:
-        value = int(value)
-        if unit == "d":
-            total_seconds += value * 86400
-        elif unit == "h":
-            total_seconds += value * 3600
-        elif unit == "m":
-            total_seconds += value * 60
-        elif unit == "s":
-            total_seconds += value
-    return total_seconds // 60
-
-# ====== BOT CLASS ======
 class MyBot(commands.Bot):
     def __init__(self):
+        intents = discord.Intents.default()
+        intents.message_content = True
         super().__init__(command_prefix="s!", intents=intents)
-        self.last_youtube_id = None
-        self.last_instagram_id = None
-        self.last_tiktok_id = None
+        # Default personality
+        self.current_mode = "vibe"
 
     async def setup_hook(self):
-        self.loop.create_task(self.check_youtube())
-        self.loop.create_task(self.check_instagram())
-        self.loop.create_task(self.check_tiktok())
-
-    async def check_youtube(self):
-        await self.wait_until_ready()
-        channel = self.get_channel(CHANNEL_ID)
-        while not self.is_closed():
-            feed = feedparser.parse(f"https://www.youtube.com/feeds/videos.xml?channel_id={YOUTUBE_CHANNEL_ID}")
-            if feed.entries:
-                latest = feed.entries[0]
-                if latest.id != self.last_youtube_id:
-                    self.last_youtube_id = latest.id
-                    await channel.send(f"<@&{ROLE_ID}> New YouTube video just dropped! 📹\n{latest.link}")
-            await asyncio.sleep(300)
-
-    async def check_instagram(self):
-        await self.wait_until_ready()
-        channel = self.get_channel(CHANNEL_ID)
-        while not self.is_closed():
-            feed = feedparser.parse(INSTAGRAM_RSS)
-            if feed.entries:
-                latest = feed.entries[0]
-                if latest.id != self.last_instagram_id:
-                    self.last_instagram_id = latest.id
-                    await channel.send(f"<@&{ROLE_ID}> New Instagram post! 📸\n{latest.link}")
-            await asyncio.sleep(300)
-
-    async def check_tiktok(self):
-        await self.wait_until_ready()
-        channel = self.get_channel(CHANNEL_ID)
-        while not self.is_closed():
-            feed = feedparser.parse(TIKTOK_RSS)
-            if feed.entries:
-                latest = feed.entries[0]
-                if latest.id != self.last_tiktok_id:
-                    self.last_tiktok_id = latest.id
-                    await channel.send(f"<@&{ROLE_ID}> New TikTok just dropped! 🎵\n{latest.link}")
-            await asyncio.sleep(300)
+        # Syncs the slash commands to your server
+        await self.tree.sync()
 
 bot = MyBot()
 
-# ====== EVENTS ======
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user}")
+# ====== SLASH COMMANDS ======
 
-@bot.event
-async def on_message(message):
-    if message.author.bot or message.channel.id != TARGET_CHANNEL_ID:
-        return
-
-    prompt = message.content
-    headers = {
-        "Content-Type": "application/json",
-        "x-goog-api-key": GEMINI_API_KEY
+@bot.tree.command(name="mode", description="Switch the bot's personality vibe")
+@app_commands.describe(vibe="Choose the new energy for the bot")
+@app_commands.choices(vibe=[
+    app_commands.Choice(name="Default Vibe (Neon/Chill)", value="vibe"),
+    app_commands.Choice(name="Unhinged (Gen Z Chaos)", value="goblin"),
+    app_commands.Choice(name="Soft Angel (Uplifting)", value="angel"),
+    app_commands.Choice(name="Savage (Roast Mode)", value="savage"),
+    app_commands.Choice(name="Corporate (Clean/Suit)", value="suit"),
+])
+async def mode(interaction: discord.Interaction, vibe: app_commands.Choice[str]):
+    bot.current_mode = vibe.value
+    responses = {
+        "vibe": "Vibe shifted. Neon lights on. 🌌",
+        "goblin": "Mode: GOBLIN. No cap, let's get weird. 💀",
+        "angel": "Energy purified. Sending love. ✨",
+        "savage": "Locked in. Don't cry when I roast your fit. 🔨",
+        "suit": "Understood. I shall maintain professional decorum. 💼"
     }
-    payload = {
-        "contents": [
-            {
-                "parts": [{"text": f"Reply shortly, Gen Z slang, simple: {prompt}"}]
-            }
-        ]
-    }
+    await interaction.response.send_message(responses[vibe.value])
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-        "https://generativelanguage.googleapis.com/v1beta/models/chat-bison-001:generateContent",
-        headers=headers,
-        json=payload
-    ) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                await message.channel.send(f"Gemini error {response.status}: `{error_text}`")
-                return
+@bot.tree.command(name="status", description="Check which personality is active")
+async def status(interaction: discord.Interaction):
+    mode_name = bot.current_mode.capitalize()
+    await interaction.response.send_message(f"Current Vibe: **{mode_name}** 🔋")
 
-            data = await response.json()
-            try:
-                reply = data["candidates"][0]["content"]["parts"][0]["text"]
-                reply = genz_reply(reply)
-                await message.channel.send(reply)
-            except Exception as e:
-                await message.channel.send(f"bro the AI glitched 💀 `{e}`")
-                return
-
-    await bot.process_commands(message)
-
-# ====== COMMANDS ======
-@bot.command()
-async def test(ctx):
-    await ctx.send(f"<@&{ROLE_ID}> Bot is alive and ready! ✅")
-
-@bot.command()
-@commands.has_permissions(kick_members=True)
-async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
-    await member.kick(reason=reason)
-    await ctx.send(f"{member.mention} was kicked. 🦶 Reason: {reason}")
-
-@bot.command()
-@commands.has_permissions(ban_members=True)
-async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
-    await member.ban(reason=reason)
-    await ctx.send(f"{member.mention} was banned. 🔨 Reason: {reason}")
-
-@bot.command()
-@commands.has_permissions(moderate_members=True)
-async def mute(ctx, member: discord.Member, duration: str = None):
-    if duration is None:
-        minutes = MAX_TIMEOUT_MINUTES
-        duration_label = "28d"
-    else:
-        minutes = parse_duration(duration)
-        if minutes is None:
-            await ctx.send("Invalid duration. Use formats like `8d`, `5h`, `30m`, `10s`, or combos like `1d12h`.")
-            return
-        duration_label = duration
-
-    if minutes > MAX_TIMEOUT_MINUTES:
-        await ctx.send("⚠️ Max mute duration is 28 days.")
-        return
-
+@bot.tree.command(name="chat", description="Chat with the bot in its current personality")
+async def chat(interaction: discord.Interaction, message: str):
+    await interaction.response.defer()
+    
     try:
-        until = discord.utils.utcnow() + timedelta(minutes=minutes)
-        await member.timeout(until)
-        await ctx.send(f"{member.mention} muted for **{duration_label}** 🤐")
+        # Get the specific system prompt based on the chosen mode
+        system_prompt = PERSONALITIES.get(bot.current_mode, PERSONALITIES["vibe"])
+        
+        response = grok.chat.completions.create(
+            model="grok-2-latest",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message}
+            ]
+        )
+        
+        reply = response.choices[0].message["content"]
+        await interaction.followup.send(reply)
+        
     except Exception as e:
-        await ctx.send(f"Failed to mute: {e}")
-
-@bot.command()
-@commands.has_permissions(moderate_members=True)
-async def unmute(ctx, member: discord.Member):
-    try:
-        await member.timeout(None)
-        await ctx.send(f"{member.mention} unmuted 🔊")
-    except Exception as e:
-        await ctx.send(f"Failed to unmute: {e}")
+        await interaction.followup.send(f"Brain fog... 💀 `{e}`")
 
 # ====== RUN ======
 bot.run(TOKEN)
