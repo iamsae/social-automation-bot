@@ -129,10 +129,10 @@ async def on_message(message):
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
-            headers=headers,
-            json=payload
-        ) as response:
+        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
+        headers=headers,
+        json=payload
+    ) as response:
             if response.status != 200:
                 error_text = await response.text()
                 await message.channel.send(f"Gemini error {response.status}: `{error_text}`")
