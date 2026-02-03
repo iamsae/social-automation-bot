@@ -129,7 +129,7 @@ async def on_message(message):
 
     async with aiohttp.ClientSession() as session:
         async with session.post(
-        "https://generativelanguage.googleapis.com/v1/models/chat-bison-001:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/chat-bison-001:generateContent",
         headers=headers,
         json=payload
     ) as response:
