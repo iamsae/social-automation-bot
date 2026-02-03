@@ -70,8 +70,28 @@ bot = MyBot()
 # ====== COMMANDS ======
 @bot.command()
 async def test(ctx):
-    await ctx.send(f"<@&{ROLE_ID}> Bot is alive and ready! ✅")
+    await ctx.send(f"<@&{ROLE_ID}> Bot is alive and ready saar")
 
+@bot.command()
+@commands.has_permissions(kick_members=True)
+async def kick(ctx, member: discord.Member, *, reason="you kicking without a reason?"):
+    await member.kick(reason=reason)
+    await ctx.send(f"{member.mention} was kicked. 🦶 Reason: {reason} damn...")
+
+@bot.command()
+@commands.has_permissions(ban_members=True)
+async def ban(ctx, member: discord.Member, *, reason="GIVE ME A REASON"):
+    await member.ban(reason=reason)
+    await ctx.send(f"{member.mention} was banned. 🔨 Reason: {reason}")
+
+@bot.command()
+@commands.has_permissions(moderate_members=True)
+async def mute(ctx, member: discord.Member, duration: int):
+    try:
+        await member.timeout(discord.utils.utcnow() + discord.timedelta(minutes=duration))
+        await ctx.send(f"{member.mention} has been muted for {duration} minutes. 🤐")
+    except Exception as e:
+        await ctx.send(f"Failed to mute: {e}")
 # ====== EVENTS ======
 @bot.event
 async def on_ready():
