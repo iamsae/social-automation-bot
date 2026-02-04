@@ -2,10 +2,11 @@ import os
 import discord
 import asyncio
 import feedparser
+import random
 from discord.ext import commands
 from discord import app_commands
 from datetime import timedelta
-from xai_sdk import Client  # Fixed for Grok
+from xai_sdk import Client  # Correct Grok SDK
 
 # ====== RAILWAY CONFIG ======
 TOKEN = os.getenv("TOKEN")
@@ -14,19 +15,20 @@ ROLE_ID = int(os.getenv("ROLE_ID"))
 TARGET_CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
 GROK_API_KEY = os.getenv("GROK_API_KEY")
 
+# Initialize Grok
 grok_client = Client(api_key=GROK_API_KEY)
 
 # ====== VIBE LORE ======
-VIBE_LORE = (
-    "You are the Vibe Digital Agent. Your world is neon aesthetics, "
-    "stylized cars, and underground music. You know NORTH26 and DX."
+VIBE_BASE_LORE = (
+    "You are the Vibe Digital Agent, part of an ecosystem of stylized car visuals, "
+    "neon aesthetics, and underground music. You know about NORTH26 and DX thumbnails."
 )
 
 PERSONALITIES = {
-    "vibe": f"{VIBE_LORE} Tone: Chill, neon-coded, rhythmic.",
-    "goblin": f"{VIBE_LORE} Tone: Unhinged Gen Z energy, chaotic brainrot.",
-    "savage": f"{VIBE_LORE} Tone: Savage roast-heavy, judgmental of mid cars.",
-    "angel": f"{VIBE_LORE} Tone: Soft, uplifting, pure aesthetic vibes."
+    "vibe": f"{VIBE_BASE_LORE} Tone: Chill, neon-coded, rhythmic.",
+    "goblin": f"{VIBE_BASE_LORE} Tone: Unhinged Gen Z energy, chaotic brainrot.",
+    "savage": f"{VIBE_BASE_LORE} Tone: Savage roast-heavy, judgmental of mid cars.",
+    "angel": f"{VIBE_BASE_LORE} Tone: Soft, uplifting, pure aesthetic vibes."
 }
 
 class VibeBot(commands.Bot):
@@ -38,11 +40,12 @@ class VibeBot(commands.Bot):
         self.current_mode = "vibe"
 
     async def setup_hook(self):
+        # Syncs / commands to Discord
         await self.tree.sync()
 
 bot = VibeBot()
 
-@bot.tree.command(name="mode", description="Switch the bot's vibe")
+@bot.tree.command(name="mode", description="Switch the bot's personality vibe")
 @app_commands.choices(vibe=[
     app_commands.Choice(name="Default Vibe", value="vibe"),
     app_commands.Choice(name="Unhinged Goblin", value="goblin"),
@@ -57,7 +60,7 @@ async def mode(interaction: discord.Interaction, vibe: app_commands.Choice[str])
 async def chat(interaction: discord.Interaction, message: str):
     await interaction.response.defer()
     try:
-        system_prompt = PERSONALITIES.get(bot.current_mode, VIBE_LORE)
+        system_prompt = PERSONALITIES.get(bot.current_mode, VIBE_BASE_LORE)
         response = grok_client.chat.completions.create(
             model="grok-2-latest",
             messages=[
@@ -67,6 +70,7 @@ async def chat(interaction: discord.Interaction, message: str):
         )
         await interaction.followup.send(response.choices[0].message.content)
     except Exception as e:
-        await interaction.followup.send(f"Brain fog... 💀 `{e}`")
+        await interaction.followup.send(f"Error: `{e}`")
 
+# Run the bot
 bot.run(TOKEN)
