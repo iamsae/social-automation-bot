@@ -2,5 +2,4 @@ discord.py
 feedparser
 requests
 aiohttp
-xai
-feedparser
+xai-sdk
